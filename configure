@@ -17069,7 +17069,7 @@ $as_echo "#define FIELD_WIDTH 18" >>confdefs.h
 $as_echo "#define FLOAT_PRECISION 2" >>confdefs.h
 
 
-ac_config_files="$ac_config_files Makefile mpi/Makefile mpi/pt2pt/Makefile mpi/startup/Makefile mpi/one-sided/Makefile mpi/collective/Makefile openshmem/Makefile upc/Makefile upcxx/Makefile"
+ac_config_files="$ac_config_files Makefile mpi/Makefile mpi/pt2pt/Makefile mpi/startup/Makefile mpi/one-sided/Makefile mpi/collective/Makefile mpi/app/Makefile openshmem/Makefile upc/Makefile upcxx/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -18253,6 +18253,7 @@ do
     "mpi/startup/Makefile") CONFIG_FILES="$CONFIG_FILES mpi/startup/Makefile" ;;
     "mpi/one-sided/Makefile") CONFIG_FILES="$CONFIG_FILES mpi/one-sided/Makefile" ;;
     "mpi/collective/Makefile") CONFIG_FILES="$CONFIG_FILES mpi/collective/Makefile" ;;
+    "mpi/app/Makefile") CONFIG_FILES="$CONFIG_FILES mpi/app/Makefile" ;;
     "openshmem/Makefile") CONFIG_FILES="$CONFIG_FILES openshmem/Makefile" ;;
     "upc/Makefile") CONFIG_FILES="$CONFIG_FILES upc/Makefile" ;;
     "upcxx/Makefile") CONFIG_FILES="$CONFIG_FILES upcxx/Makefile" ;;

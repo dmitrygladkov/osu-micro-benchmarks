@@ -151,6 +151,6 @@ AC_DEFINE([FIELD_WIDTH], [18], [Width of field used to report numbers])
 AC_DEFINE([FLOAT_PRECISION], [2], [Precision of reported numbers])
 
 AC_CONFIG_FILES([Makefile mpi/Makefile mpi/pt2pt/Makefile mpi/startup/Makefile
-                 mpi/one-sided/Makefile mpi/collective/Makefile
+                 mpi/one-sided/Makefile mpi/collective/Makefile mpi/app/Makefile
                  openshmem/Makefile upc/Makefile upcxx/Makefile])
 AC_OUTPUT
