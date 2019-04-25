@@ -85,6 +85,7 @@ void
 print_header(int rank, int full)
 {
     switch(options.bench) {
+        case APP :
         case PT2PT :
             if (0 == rank) {
                 switch (options.accel) {
@@ -668,6 +669,8 @@ int process_options (int argc, char *argv[])
         accel_enabled = 0;
     } else if (options.bench == OSHM || options.bench == UPC || options.bench == UPCXX) {
         optstring = ":hvfm:i:M:";
+    } else if (options.bench == APP) {
+        optstring = "+:hvm:x:i:";
     } else {
         fprintf(stderr,"Invalid benchmark type");
         exit(1);
@@ -683,6 +686,8 @@ int process_options (int argc, char *argv[])
     options.min_message_size = MIN_MESSAGE_SIZE;
     if (options.bench == COLLECTIVE) {
         options.max_message_size = MAX_MSG_SIZE_COLL;
+    } else if (options.bench == APP) {
+        options.max_message_size = MAX_MSG_SIZE_APP;
     } else {
         options.max_message_size = MAX_MESSAGE_SIZE;
     }

@@ -163,6 +163,7 @@ enum mpi_req{
 #define MAX_MESSAGE_SIZE (1 << 22)
 #define MAX_MSG_SIZE_PT2PT (1<<20)
 #define MAX_MSG_SIZE_COLL (1<<20)
+#define MAX_MSG_SIZE_APP (1<<12)
 #define MIN_MESSAGE_SIZE 1
 #define LARGE_MESSAGE_SIZE 8192
 
@@ -203,6 +204,7 @@ enum benchmark_type {
     PT2PT,
     ONE_SIDED,
     MBW_MR,
+    APP,
     OSHM,
     UPC,
     UPCXX
