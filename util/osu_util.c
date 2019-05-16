@@ -111,7 +111,9 @@ print_header(int rank, int full)
                             fprintf(stdout, "%-*s%*s\n", 10, "# Size", FIELD_WIDTH, "Bandwidth (MB/s)");
                         }
                         else if ((options.subtype == LAT) && (options.bench == APP)) {
-                            fprintf(stdout, "%-*s%*s%*s\n", 10, "# Size", FIELD_WIDTH, "Compute Time (us)",
+                            fprintf(stdout, "%-*s%*s%*s%*s\n", 10, "# Size",
+                                    FIELD_WIDTH, "Avg. Compute Time (us) ",
+                                    FIELD_WIDTH, "Total Compute Time (us) ",
                                     FIELD_WIDTH, "Total Time (us)");
                         } else {
                             fprintf(stdout, "%-*s%*s\n", 10, "# Size", FIELD_WIDTH, "Latency (us)");

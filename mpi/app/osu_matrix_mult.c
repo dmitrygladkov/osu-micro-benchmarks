@@ -396,10 +396,12 @@ int main(int argc, char *argv[])
 
 res:
         if (myid == 0) {
-            double time = (total_time) * 1e6 / (2.0 * options.iterations);
-            double comp = (compute_time) * 1e6 / (2.0 * options.iterations);
+            double time     = (total_time) * 1e6 / (2.0 * options.iterations);
+            double comp     = (compute_time) * 1e6 / (2.0 * options.iterations);
+            double avg_comp = (numprocs == 1) ? comp : comp / (numprocs - 1);
 
-            fprintf(stdout, "%-*d%*.*f%*.*f\n", 10, size,
+            fprintf(stdout, "%-*d%*.*f%*.*f%*.*f\n", 10, size,
+                    FIELD_WIDTH, FLOAT_PRECISION, avg_comp,
                     FIELD_WIDTH, FLOAT_PRECISION, comp,
                     FIELD_WIDTH, FLOAT_PRECISION, time);
             fflush(stdout);
