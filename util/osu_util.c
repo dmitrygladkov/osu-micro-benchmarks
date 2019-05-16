@@ -110,7 +110,10 @@ print_header(int rank, int full)
                         if (options.subtype == BW) {
                             fprintf(stdout, "%-*s%*s\n", 10, "# Size", FIELD_WIDTH, "Bandwidth (MB/s)");
                         }
-                        else {
+                        else if ((options.subtype == LAT) && (options.bench == APP)) {
+                            fprintf(stdout, "%-*s%*s%*s\n", 10, "# Size", FIELD_WIDTH, "Compute Time (us)",
+                                    FIELD_WIDTH, "Total Time (us)");
+                        } else {
                             fprintf(stdout, "%-*s%*s\n", 10, "# Size", FIELD_WIDTH, "Latency (us)");
                         }
                         fflush(stdout);

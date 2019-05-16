@@ -35,7 +35,6 @@ static void matrix_mult(double **matrixA, double **matrixB,
 
     for (j = 0; j < rows; j++) {
         for (k = 0; k < size; k++) {
-#pragma simd
             for (i = 0; i < size; i++) {
                 res_matrix[j][i] += matrixA[j][k] * matrixB[k][i];
             }
@@ -76,21 +75,34 @@ static void print_matrix(const char *name, double **matrix, size_t size, int sho
     }
 }
 
-static void generate_test_matrix_data(int myid, void *memblocks[3], double **matrixA, double **matrixB,
-                                      double **res_matrix, size_t size, size_t double_size, int should_print)
+static size_t matrix_offset = 0;
+
+static void generate_test_matrix_data(int myid, void *memblocks[3], size_t memblock_max_size,
+                                      double **matrixA, double **matrixB, double **res_matrix,
+                                      size_t size, size_t double_size, int should_print)
 {
     size_t i;
 
+    if (((matrix_offset + 1) * size * double_size * size) > memblock_max_size) {
+        matrix_offset = 0;
+    }
+
     for (i = 0; i < size; i++) {
-        matrixA[i] = attach_mem_block(memblocks[0], i * size * double_size,
+        matrixA[i] = attach_mem_block(memblocks[0],
+                                      i * size * double_size +
+                                      (matrix_offset * size * double_size * size),
                                       size * double_size);
         memset(matrixA[i], 0, size * double_size);
 
-        matrixB[i] = attach_mem_block(memblocks[1], i * size * double_size,
+        matrixB[i] = attach_mem_block(memblocks[1],
+                                      i * size * double_size +
+                                      (matrix_offset * size * double_size * size),
                                       size * double_size);
         memset(matrixB[i], 0, size * double_size);
 
-        res_matrix[i] = attach_mem_block(memblocks[2], i * size * double_size,
+        res_matrix[i] = attach_mem_block(memblocks[2],
+                                         i * size * double_size +
+                                         (matrix_offset * size * double_size * size),
                                          size * double_size);
         memset(res_matrix[i], 0, size * double_size);
     }
@@ -101,6 +113,8 @@ static void generate_test_matrix_data(int myid, void *memblocks[3], double **mat
         print_matrix("A", matrixA, size, should_print);
         print_matrix("B", matrixB, size, should_print);
     }
+
+    matrix_offset++;
 }
 
 static void free_test_matrix_data(void *memblocks[3], double **matrixA,
@@ -124,10 +138,12 @@ int main(int argc, char *argv[])
     int size, rows, double_size, exit_status = EXIT_SUCCESS;
     size_t iter;
     double t_start = 0.0, t_end = 0.0, total_time = 0.0;
+    double compute_time = 0.0, recv_time = 0.0;
     int i, full, extra, offset, mtype;
     MPI_Status status;
     int reuse_memory = 1, print_matrices = 0;
     char *p;
+    size_t memblock_max_size;
 
     options.bench = APP;
     options.subtype = LAT;
@@ -188,6 +204,8 @@ int main(int argc, char *argv[])
 
     MPI_CHECK(MPI_Type_size(MPI_DOUBLE, &double_size));
 
+    memblock_max_size = options.max_message_size * options.max_message_size * double_size;
+
     matrixA = calloc(1, options.max_message_size * sizeof(*matrixA));
     matrixB = calloc(1, options.max_message_size * sizeof(*matrixB));
     res_matrix = calloc(1, options.max_message_size * sizeof(*res_matrix));
@@ -231,12 +249,13 @@ int main(int argc, char *argv[])
         if (numprocs == 1) {
             for (iter = 0; iter < options.iterations + options.skip; iter++) {
                 if (!reuse_memory || (iter == 0)) {
-                    memblocks[0] = calloc(1, options.max_message_size * options.max_message_size * double_size);
-                    memblocks[1] = calloc(1, options.max_message_size * options.max_message_size * double_size);
-                    memblocks[2] = calloc(1, options.max_message_size * options.max_message_size * double_size);
+                    memblocks[0] = calloc(1, memblock_max_size);
+                    memblocks[1] = calloc(1, memblock_max_size);
+                    memblocks[2] = calloc(1, memblock_max_size);
                 }
-                generate_test_matrix_data(myid, memblocks, matrixA, matrixB,
-                                          res_matrix, size, double_size, print_matrices);
+                generate_test_matrix_data(myid, memblocks, memblock_max_size,
+                                          matrixA, matrixB, res_matrix, size,
+                                          double_size, print_matrices);
 
                 if (iter >= options.skip) {
                     t_start = MPI_Wtime();
@@ -260,6 +279,8 @@ int main(int argc, char *argv[])
                 }
             }
 
+            compute_time = total_time;
+
             goto res;
         } /* no code should be executed after this statement in case of numprocs=1 */
 
@@ -268,12 +289,13 @@ int main(int argc, char *argv[])
         if (myid == 0) {
             for(iter = 0; iter < options.iterations + options.skip; iter++) {
                 if (!reuse_memory || (iter == 0)) {
-                    memblocks[0] = calloc(1, options.max_message_size * options.max_message_size * double_size);
-                    memblocks[1] = calloc(1, options.max_message_size * options.max_message_size * double_size);
-                    memblocks[2] = calloc(1, options.max_message_size * options.max_message_size * double_size);
+                    memblocks[0] = calloc(1, memblock_max_size);
+                    memblocks[1] = calloc(1, memblock_max_size);
+                    memblocks[2] = calloc(1, memblock_max_size);
                 }
-                generate_test_matrix_data(myid, memblocks, matrixA, matrixB,
-                                          res_matrix, size, double_size, print_matrices);
+                generate_test_matrix_data(myid, memblocks, memblock_max_size,
+                                          matrixA, matrixB, res_matrix, size,
+                                          double_size, print_matrices);
                 MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
                 if (iter >= options.skip) {
@@ -325,15 +347,20 @@ int main(int argc, char *argv[])
                     free(memblocks[2]);
                 }
             }
+
+            MPI_Reduce(&compute_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+            compute_time = recv_time;
         } else {
             for(iter = 0; iter < options.iterations + options.skip; iter++) {
                 if (!reuse_memory || (iter == 0)) {
-                    memblocks[0] = calloc(1, options.max_message_size * options.max_message_size * double_size);
-                    memblocks[1] = calloc(1, options.max_message_size * options.max_message_size * double_size);
-                    memblocks[2] = calloc(1, options.max_message_size * options.max_message_size * double_size);
+                    memblocks[0] = calloc(1, memblock_max_size);
+                    memblocks[1] = calloc(1, memblock_max_size);
+                    memblocks[2] = calloc(1, memblock_max_size);
                 }
-                generate_test_matrix_data(myid, memblocks, matrixA, matrixB,
-                                          res_matrix, size, double_size, 0);
+                generate_test_matrix_data(myid, memblocks, memblock_max_size,
+                                          matrixA, matrixB, res_matrix,
+                                          size, double_size, 0);
                 MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
                 mtype = MASTER_2_WORKER;
@@ -344,8 +371,9 @@ int main(int argc, char *argv[])
                 MPI_Recv(&(matrixB[0][0]), size * size, MPI_DOUBLE, 0, mtype, MPI_COMM_WORLD, &status);
 
                 //printf("Received %d rows to task %d offset=%d\n", rows, myid, offset);
-
+                t_start = MPI_Wtime();
                 matrix_mult(matrixA, matrixB, res_matrix, size, rows, 0);
+                t_end = MPI_Wtime();
 
                 mtype = WORKER_2_MASTER;
 
@@ -359,15 +387,21 @@ int main(int argc, char *argv[])
                     free(memblocks[1]);
                     free(memblocks[2]);
                 }
+
+                compute_time += t_end - t_start;
             }
+
+            MPI_Reduce(&compute_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
 
 res:
         if (myid == 0) {
             double time = (total_time) * 1e6 / (2.0 * options.iterations);
+            double comp = (compute_time) * 1e6 / (2.0 * options.iterations);
 
-            fprintf(stdout, "%-*d%*.*f\n", 10, size, FIELD_WIDTH,
-                    FLOAT_PRECISION, time);
+            fprintf(stdout, "%-*d%*.*f%*.*f\n", 10, size,
+                    FIELD_WIDTH, FLOAT_PRECISION, comp,
+                    FIELD_WIDTH, FLOAT_PRECISION, time);
             fflush(stdout);
         }
     }

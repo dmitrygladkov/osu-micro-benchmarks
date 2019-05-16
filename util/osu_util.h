@@ -213,7 +213,7 @@ enum benchmark_type {
 enum test_subtype {
     BW,
     LAT,
-    LAT_MT,
+    LAT_MT
 };
 
 enum test_synctype {
