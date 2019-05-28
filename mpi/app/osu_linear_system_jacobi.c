@@ -221,8 +221,6 @@ int main(int argc, char *argv[])
     MPI_CHECK(MPI_Comm_size(MPI_COMM_WORLD, &numprocs));
     MPI_CHECK(MPI_Comm_rank(MPI_COMM_WORLD, &myid));
 
-    fprintf(stderr, "RUN %d %d\n", numprocs, myid);
-    
     if (0 == myid) {
         switch (po_ret) {
             case PO_CUDA_NOT_AVAIL:
