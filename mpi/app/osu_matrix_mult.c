@@ -138,7 +138,7 @@ int main(int argc, char *argv[])
     int size, rows, double_size, exit_status = EXIT_SUCCESS;
     size_t iter;
     double t_start = 0.0, t_end = 0.0, total_time = 0.0;
-    double compute_time = 0.0, recv_time = 0.0;
+    double commun_time = 0.0, recv_time = 0.0;
     int i, full, extra, offset, mtype;
     MPI_Status status;
     int reuse_memory = 1, print_matrices = 0;
@@ -227,6 +227,7 @@ int main(int argc, char *argv[])
             options.iterations = options.iterations_large;
             options.skip = options.skip_large;
         }
+        commun_time = 0;
 
         if (size >= 64) {
             if (size >= 512) {
@@ -279,8 +280,6 @@ int main(int argc, char *argv[])
                 }
             }
 
-            compute_time = total_time;
-
             goto res;
         } /* no code should be executed after this statement in case of numprocs=1 */
 
@@ -310,26 +309,44 @@ int main(int argc, char *argv[])
                 mtype = MASTER_2_WORKER;
 
                 for (dest = 1; dest < numprocs; dest++) {
+                    double tc_start, tc_end;
                     rows = (dest <= extra) ? full + 1 : full;
 
                     //printf("Sending %d rows to task %d offset=%d\n", rows, dest, offset);
 
+                    if (iter >= options.skip) {
+                        tc_start = MPI_Wtime();
+                    }
                     MPI_Send(&offset, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
                     MPI_Send(&rows, 1, MPI_INT, dest, mtype, MPI_COMM_WORLD);
                     MPI_Send(&(matrixA[offset][0]), rows * size, MPI_DOUBLE, dest, mtype,
                              MPI_COMM_WORLD);
                     MPI_Send(&(matrixB[0][0]), size * size, MPI_DOUBLE, dest, mtype,
                              MPI_COMM_WORLD);
+                    if (iter >= options.skip) {
+                        tc_end = MPI_Wtime();
+
+                        commun_time += (tc_end - tc_start);
+                    }
                     offset = offset + rows;
                 }
 
                 /* Receive results from worker tasks */
                 mtype = WORKER_2_MASTER;
                 for (i = 1; i < numprocs; i++) {
+                    double tc_start, tc_end;
+                    if (iter >= options.skip) {
+                        tc_start = MPI_Wtime();
+                    }
                     MPI_Recv(&offset, 1, MPI_INT, i, mtype, MPI_COMM_WORLD, &status);
                     MPI_Recv(&rows, 1, MPI_INT, i, mtype, MPI_COMM_WORLD, &status);
                     MPI_Recv(&(res_matrix[offset][0]), rows * size, MPI_DOUBLE, i, mtype, 
                              MPI_COMM_WORLD, &status);
+                    if (iter >= options.skip) {
+                        tc_end = MPI_Wtime();
+
+                        commun_time += (tc_end - tc_start);
+                    }
                 }
    
                 if (iter >= options.skip) {
@@ -348,9 +365,9 @@ int main(int argc, char *argv[])
                 }
             }
 
-            MPI_Reduce(&compute_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&commun_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
-            compute_time = recv_time;
+            commun_time = recv_time;
         } else {
             for(iter = 0; iter < options.iterations + options.skip; iter++) {
                 if (!reuse_memory || (iter == 0)) {
@@ -365,21 +382,20 @@ int main(int argc, char *argv[])
 
                 mtype = MASTER_2_WORKER;
 
+                if (iter >= options.skip) {
+                    t_start = MPI_Wtime();
+                }
                 MPI_Recv(&offset, 1, MPI_INT, 0, mtype, MPI_COMM_WORLD, &status);
                 MPI_Recv(&rows, 1, MPI_INT, 0, mtype, MPI_COMM_WORLD, &status);
                 MPI_Recv(&(matrixA[0][0]), rows * size, MPI_DOUBLE, 0, mtype, MPI_COMM_WORLD, &status);
                 MPI_Recv(&(matrixB[0][0]), size * size, MPI_DOUBLE, 0, mtype, MPI_COMM_WORLD, &status);
-
-                //printf("Received %d rows to task %d offset=%d\n", rows, myid, offset);
-
-                if (iter >= options.skip) {
-                    t_start = MPI_Wtime();
-                }
-                matrix_mult(matrixA, matrixB, res_matrix, size, rows, 0);
                 if (iter >= options.skip) {
                     t_end = MPI_Wtime();
-                    compute_time += t_end - t_start;
+                    commun_time += t_end - t_start;
                 }
+
+                //printf("Received %d rows to task %d offset=%d\n", rows, myid, offset);
+                matrix_mult(matrixA, matrixB, res_matrix, size, rows, 0);
 
                 mtype = WORKER_2_MASTER;
 
@@ -395,19 +411,19 @@ int main(int argc, char *argv[])
                 }
             }
 
-            MPI_Reduce(&compute_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&commun_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
 
 res:
         if (myid == 0) {
-            double time     = (total_time) * 1e6 / (2.0 * options.iterations);
-            double comp     = (compute_time) * 1e6 / (2.0 * options.iterations);
-            double avg_comp = (numprocs == 1) ? comp : comp / (numprocs - 1);
+            double time    = (total_time) * 1e6 / (options.iterations);
+            double com     = (commun_time) * 1e6 / (options.iterations);
+            double avg_com = (numprocs == 1) ? com : com / (numprocs - 1);
 
             fprintf(stdout, "%-*d%*.*f%*.*f%*.*f\n", 10, size,
-                    FIELD_WIDTH, FLOAT_PRECISION, avg_comp,
-                    FIELD_WIDTH, FLOAT_PRECISION, comp,
-                    FIELD_WIDTH, FLOAT_PRECISION, time);
+                    FIELD_WIDTH, FLOAT_PRECISION, avg_com,
+                    FIELD_WIDTH, FLOAT_PRECISION, time,
+                    FIELD_WIDTH, FLOAT_PRECISION, avg_com / time * 100);
             fflush(stdout);
         }
     }

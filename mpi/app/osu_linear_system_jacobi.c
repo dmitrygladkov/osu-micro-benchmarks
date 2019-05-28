@@ -118,78 +118,83 @@ static double p_jacobi(double *matrixA, double *vectorB, double *vectorRes,
                        double *vectorX, double *vectorOldX, double *vectorLocX,
                        size_t dim, size_t num_of_row, size_t double_size, int myid)
 {
-    double comp_time = 0, t_start, t_end;
+    double com_time = 0, t_start, t_end;
     size_t i, j;
-
-    if (myid == 0) {
-        MPI_Scatter(matrixA, num_of_row * dim, MPI_DOUBLE, /*matrixA*/MPI_IN_PLACE,
-                    num_of_row * dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Scatter(vectorB, num_of_row, MPI_DOUBLE, /*vectorB*/MPI_IN_PLACE,
-                    num_of_row, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    } else {
-        MPI_Scatter(matrixA, num_of_row * dim, MPI_DOUBLE, matrixA,
-                    num_of_row * dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-        MPI_Scatter(vectorB, num_of_row, MPI_DOUBLE, vectorB,
-                    num_of_row, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    }
 
     t_start = MPI_Wtime();
     {
-        for (i = 0; i < num_of_row; ++i) {
-            for (j = 0; j < dim; ++j) {
-                if (i + myid * num_of_row == j) {
-                    matrixB[i * dim + j] = 0;
-                } else {
-                    matrixB[i * dim + j] =
-                        - matrixA[i * dim + j] / matrixA[i * dim + i +
-                                                         myid * num_of_row];
-                }
-            }
-            vectorD[i] = vectorB[i] / matrixA[i * dim + i + myid * num_of_row];
+        if (myid == 0) {
+            MPI_Scatter(matrixA, num_of_row * dim, MPI_DOUBLE, /*matrixA*/MPI_IN_PLACE,
+                        num_of_row * dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            MPI_Scatter(vectorB, num_of_row, MPI_DOUBLE, /*vectorB*/MPI_IN_PLACE,
+                        num_of_row, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        } else {
+            MPI_Scatter(matrixA, num_of_row * dim, MPI_DOUBLE, matrixA,
+                        num_of_row * dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            MPI_Scatter(vectorB, num_of_row, MPI_DOUBLE, vectorB,
+                        num_of_row, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         }
     }
     t_end = MPI_Wtime();
-    comp_time += (t_end - t_start);
+    com_time += (t_end - t_start);
+
+    for (i = 0; i < num_of_row; ++i) {
+        for (j = 0; j < dim; ++j) {
+            if (i + myid * num_of_row == j) {
+                matrixB[i * dim + j] = 0;
+            } else {
+                matrixB[i * dim + j] =
+                    - matrixA[i * dim + j] / matrixA[i * dim + i +
+                                                     myid * num_of_row];
+            }
+        }
+        vectorD[i] = vectorB[i] / matrixA[i * dim + i + myid * num_of_row];
+    }
 
     double diff = 0;
     double *row = NULL;
     double sum;
 
     do {
-        MPI_Bcast(vectorOldX, dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        t_start = MPI_Wtime();
+        {
+            MPI_Bcast(vectorOldX, dim, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        }
+        t_end = MPI_Wtime();
+        com_time += (t_end - t_start);
+
+        for (i = 0; i < num_of_row; ++i) {
+            sum = vectorD[i];
+            row = matrixB + i * dim;
+            for(j = 0; j < dim; ++j) {
+                sum += vectorOldX[j] * row[j];
+            }
+            vectorLocX[i] = sum;
+        }
 
         t_start = MPI_Wtime();
         {
-            for (i = 0; i < num_of_row; ++i) {
-                sum = vectorD[i];
-                row = matrixB + i * dim;
-                for(j = 0; j < dim; ++j) {
-                    sum += vectorOldX[j] * row[j];
-                }
-                vectorLocX[i] = sum;
-            }
+            MPI_Gather(vectorLocX, num_of_row, MPI_DOUBLE, vectorX,
+                       num_of_row, MPI_DOUBLE, 0, MPI_COMM_WORLD);
         }
         t_end = MPI_Wtime();
-        comp_time += (t_end - t_start);
-
-        MPI_Gather(vectorLocX, num_of_row, MPI_DOUBLE, vectorX,
-                   num_of_row, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        com_time += (t_end - t_start);
 
         if (myid == 0) {
-            t_start = MPI_Wtime();
             diff = get_norm(vectorOldX, vectorX, dim);
-            {
-                memcpy(vectorOldX, vectorX, dim * double_size);
-                t_end = MPI_Wtime();
-            }
-            comp_time += (t_end - t_start);
+            memcpy(vectorOldX, vectorX, dim * double_size);
         }
 
-        MPI_Bcast(&diff, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        t_start = MPI_Wtime();
+        {
+            MPI_Bcast(&diff, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+        }
+        t_end = MPI_Wtime();
+        com_time += (t_end - t_start);
 
     } while(diff >= eps);
 
-    return comp_time;
+    return com_time;
 }
 
 int main(int argc, char *argv[])
@@ -199,7 +204,7 @@ int main(int argc, char *argv[])
     double **matrixA, **matrixB, **res_matrix;
     int exit_status = EXIT_SUCCESS;
     double t_start = 0.0, t_end = 0.0, total_time = 0.0;
-    double compute_time = 0.0, recv_time = 0.0;
+    double commun_time = 0.0, recv_time = 0.0;
     MPI_Status status;
     int iter, size, double_size;
 
@@ -269,6 +274,7 @@ int main(int argc, char *argv[])
             options.iterations = options.iterations_large;
             options.skip = options.skip_large;
         }
+        commun_time = 0;
 
         if (size >= 64) {
             if (size >= 512) {
@@ -329,8 +335,6 @@ int main(int argc, char *argv[])
                 free(x_old_vector);
             }
 
-            compute_time = total_time;
-
             goto res;
         } /* no code should be executed after this statement in case of numprocs=1 */
 
@@ -367,14 +371,14 @@ int main(int argc, char *argv[])
                     t_start = MPI_Wtime();
                 }
 
-                double comp_time = p_jacobi(a, b, res, x0, b_matrix, d_vector, x_vector,
-                                            x_old_vector, x_loc_vector, size,
-                                            num_of_row, double_size, myid);
+                double com_time = p_jacobi(a, b, res, x0, b_matrix, d_vector, x_vector,
+                                           x_old_vector, x_loc_vector, size,
+                                           num_of_row, double_size, myid);
    
                 if (iter >= options.skip) {
                     t_end = MPI_Wtime();
                     total_time   += (t_end - t_start);
-                    compute_time += comp_time;
+                    commun_time  += com_time;
                 }
 
                 memcpy(res, x_vector, size * double_size);
@@ -390,9 +394,8 @@ int main(int argc, char *argv[])
                 free(x_loc_vector);
             }
 
-            MPI_Reduce(&compute_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-
-            compute_time += recv_time;
+            MPI_Reduce(&commun_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            commun_time = recv_time;
         } else {
             for(iter = 0; iter < options.iterations + options.skip; iter++) {
                 /*allocate memory-fill some buffers by NULL*/
@@ -414,13 +417,12 @@ int main(int argc, char *argv[])
                 }
                 MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
 
-                
-                double comp_time = p_jacobi(a, b, res, x0, b_matrix, d_vector, x_vector,
-                                            x_old_vector, x_loc_vector, size,
-                                            num_of_row, double_size, myid);
+                double com_time = p_jacobi(a, b, res, x0, b_matrix, d_vector, x_vector,
+                                           x_old_vector, x_loc_vector, size,
+                                           num_of_row, double_size, myid);
 
                 if (iter >= options.skip) {
-                    compute_time += comp_time;
+                    commun_time += com_time;
                 }
 
                 free(a);
@@ -434,19 +436,19 @@ int main(int argc, char *argv[])
                 free(x_loc_vector);
             }
 
-            MPI_Reduce(&compute_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+            MPI_Reduce(&commun_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
         }
 
 res:
         if (myid == 0) {
-            double time     = (total_time) * 1e6 / (2.0 * options.iterations);
-            double comp     = (compute_time) * 1e6 / (2.0 * options.iterations);
-            double avg_comp = (numprocs == 1) ? comp : (comp / numprocs);
+            double time    = (total_time) * 1e6 / (options.iterations);
+            double com     = (commun_time) * 1e6 / (options.iterations);
+            double avg_com = (numprocs == 1) ? com : (com / numprocs);
 
             fprintf(stdout, "%-*d%*.*f%*.*f%*.*f\n", 10, size,
-                    FIELD_WIDTH, FLOAT_PRECISION, avg_comp,
-                    FIELD_WIDTH, FLOAT_PRECISION, comp,
-                    FIELD_WIDTH, FLOAT_PRECISION, time);
+                    FIELD_WIDTH, FLOAT_PRECISION, avg_com,
+                    FIELD_WIDTH, FLOAT_PRECISION, time,
+                    FIELD_WIDTH, FLOAT_PRECISION, avg_com / time * 100);
             fflush(stdout);
         }
     }

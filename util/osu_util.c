@@ -112,9 +112,9 @@ print_header(int rank, int full)
                         }
                         else if ((options.subtype == LAT) && (options.bench == APP)) {
                             fprintf(stdout, "%-*s%*s%*s%*s\n", 10, "# Size",
-                                    FIELD_WIDTH, "Avg. Compute Time (us) ",
-                                    FIELD_WIDTH, "Total Compute Time (us) ",
-                                    FIELD_WIDTH, "Total Time (us)");
+                                    FIELD_WIDTH, "Avg. Communication Time (us) ",
+                                    FIELD_WIDTH, "Total Time (us) ",
+                                    FIELD_WIDTH, "Communication Time (%)");
                         } else {
                             fprintf(stdout, "%-*s%*s\n", 10, "# Size", FIELD_WIDTH, "Latency (us)");
                         }
