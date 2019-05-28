@@ -7,7 +7,7 @@ SUFFIXES = .cu .cpp
 	$(NVCC) $(NVCFLAGS) $(INCLUDES) $(CPPFLAGS) --output-file $@ $<
 
 appdir = $(pkglibexecdir)/mpi/app
-app_PROGRAMS = osu_matrix_mult
+app_PROGRAMS = osu_matrix_mult osu_linear_system_jacobi
 
 AM_CFLAGS = -I../../util
 
@@ -17,6 +17,7 @@ UTILITIES += ../../util/kernel.cu
 endif
 
 osu_matrix_mult_SOURCES = osu_matrix_mult.c $(UTILITIES)
+osu_linear_system_jacobi_SOURCES = osu_linear_system_jacobi.c $(UTILITIES)
 
 if EMBEDDED_BUILD
     AM_LDFLAGS =

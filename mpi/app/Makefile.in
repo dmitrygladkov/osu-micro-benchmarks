@@ -88,7 +88,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-app_PROGRAMS = osu_matrix_mult$(EXEEXT)
+app_PROGRAMS = osu_matrix_mult$(EXEEXT) \
+	osu_linear_system_jacobi$(EXEEXT)
 @CUDA_KERNELS_TRUE@am__append_1 = ../../util/kernel.cu
 @BUILD_PROFILING_LIB_TRUE@@EMBEDDED_BUILD_TRUE@am__append_2 = $(top_builddir)/../lib/lib@PMPILIBNAME@.la
 @OPENACC_TRUE@am__append_3 = -acc -ta=tesla:nordc
@@ -103,19 +104,27 @@ CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 am__installdirs = "$(DESTDIR)$(appdir)"
 PROGRAMS = $(app_PROGRAMS)
-am__osu_matrix_mult_SOURCES_DIST = osu_matrix_mult.c \
-	../../util/osu_util.c osu_util.h ../../util/kernel.cu
+am__osu_linear_system_jacobi_SOURCES_DIST =  \
+	osu_linear_system_jacobi.c ../../util/osu_util.c osu_util.h \
+	../../util/kernel.cu
 am__dirstamp = $(am__leading_dot)dirstamp
 @CUDA_KERNELS_TRUE@am__objects_1 = ../../util/kernel.$(OBJEXT)
 am__objects_2 = ../../util/osu_util.$(OBJEXT) $(am__objects_1)
-am_osu_matrix_mult_OBJECTS = osu_matrix_mult.$(OBJEXT) \
-	$(am__objects_2)
-osu_matrix_mult_OBJECTS = $(am_osu_matrix_mult_OBJECTS)
-osu_matrix_mult_LDADD = $(LDADD)
+am_osu_linear_system_jacobi_OBJECTS =  \
+	osu_linear_system_jacobi.$(OBJEXT) $(am__objects_2)
+osu_linear_system_jacobi_OBJECTS =  \
+	$(am_osu_linear_system_jacobi_OBJECTS)
+osu_linear_system_jacobi_LDADD = $(LDADD)
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+am__osu_matrix_mult_SOURCES_DIST = osu_matrix_mult.c \
+	../../util/osu_util.c osu_util.h ../../util/kernel.cu
+am_osu_matrix_mult_OBJECTS = osu_matrix_mult.$(OBJEXT) \
+	$(am__objects_2)
+osu_matrix_mult_OBJECTS = $(am_osu_matrix_mult_OBJECTS)
+osu_matrix_mult_LDADD = $(LDADD)
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -168,8 +177,10 @@ AM_V_CXXLD = $(am__v_CXXLD_@AM_V@)
 am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
-SOURCES = $(osu_matrix_mult_SOURCES)
-DIST_SOURCES = $(am__osu_matrix_mult_SOURCES_DIST)
+SOURCES = $(osu_linear_system_jacobi_SOURCES) \
+	$(osu_matrix_mult_SOURCES)
+DIST_SOURCES = $(am__osu_linear_system_jacobi_SOURCES_DIST) \
+	$(am__osu_matrix_mult_SOURCES_DIST)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -326,6 +337,7 @@ appdir = $(pkglibexecdir)/mpi/app
 AM_CFLAGS = -I../../util $(am__append_3)
 UTILITIES = ../../util/osu_util.c osu_util.h $(am__append_1)
 osu_matrix_mult_SOURCES = osu_matrix_mult.c $(UTILITIES)
+osu_linear_system_jacobi_SOURCES = osu_linear_system_jacobi.c $(UTILITIES)
 @EMBEDDED_BUILD_TRUE@AM_LDFLAGS = $(am__append_2) \
 @EMBEDDED_BUILD_TRUE@	$(top_builddir)/../lib/lib@MPILIBNAME@.la
 @EMBEDDED_BUILD_TRUE@AM_CPPFLAGS = -I$(top_builddir)/../src/include \
@@ -426,6 +438,10 @@ clean-appPROGRAMS:
 ../../util/kernel.$(OBJEXT): ../../util/$(am__dirstamp) \
 	../../util/$(DEPDIR)/$(am__dirstamp)
 
+osu_linear_system_jacobi$(EXEEXT): $(osu_linear_system_jacobi_OBJECTS) $(osu_linear_system_jacobi_DEPENDENCIES) $(EXTRA_osu_linear_system_jacobi_DEPENDENCIES) 
+	@rm -f osu_linear_system_jacobi$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(osu_linear_system_jacobi_OBJECTS) $(osu_linear_system_jacobi_LDADD) $(LIBS)
+
 osu_matrix_mult$(EXEEXT): $(osu_matrix_mult_OBJECTS) $(osu_matrix_mult_DEPENDENCIES) $(EXTRA_osu_matrix_mult_DEPENDENCIES) 
 	@rm -f osu_matrix_mult$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(osu_matrix_mult_OBJECTS) $(osu_matrix_mult_LDADD) $(LIBS)
@@ -439,6 +455,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@../../util/$(DEPDIR)/kernel.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@../../util/$(DEPDIR)/osu_util.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/osu_linear_system_jacobi.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/osu_matrix_mult.Po@am__quote@
 
 .c.o:

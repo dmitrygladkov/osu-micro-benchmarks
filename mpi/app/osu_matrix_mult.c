@@ -371,9 +371,15 @@ int main(int argc, char *argv[])
                 MPI_Recv(&(matrixB[0][0]), size * size, MPI_DOUBLE, 0, mtype, MPI_COMM_WORLD, &status);
 
                 //printf("Received %d rows to task %d offset=%d\n", rows, myid, offset);
-                t_start = MPI_Wtime();
+
+                if (iter >= options.skip) {
+                    t_start = MPI_Wtime();
+                }
                 matrix_mult(matrixA, matrixB, res_matrix, size, rows, 0);
-                t_end = MPI_Wtime();
+                if (iter >= options.skip) {
+                    t_end = MPI_Wtime();
+                    compute_time += t_end - t_start;
+                }
 
                 mtype = WORKER_2_MASTER;
 
@@ -387,8 +393,6 @@ int main(int argc, char *argv[])
                     free(memblocks[1]);
                     free(memblocks[2]);
                 }
-
-                compute_time += t_end - t_start;
             }
 
             MPI_Reduce(&compute_time, &recv_time, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
