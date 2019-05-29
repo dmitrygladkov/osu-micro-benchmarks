@@ -222,6 +222,15 @@ int main(int argc, char *argv[])
 
     print_header(myid, LAT);
 
+    if (options.min_message_size < numprocs) {
+        options.min_message_size = numprocs;
+    }
+
+    /* Adjust to be a power of two */
+    while ((options.min_message_size & (options.min_message_size - 1)) != 0) {
+        options.min_message_size++;
+    }
+
     for (size = options.min_message_size; size <= options.max_message_size; size = (size ? size * 2 : 1)) {
         if (size > LARGE_MESSAGE_SIZE) {
             options.iterations = options.iterations_large;
@@ -416,14 +425,19 @@ int main(int argc, char *argv[])
 
 res:
         if (myid == 0) {
-            double time    = (total_time) * 1e6 / (options.iterations);
-            double com     = (commun_time) * 1e6 / (options.iterations);
-            double avg_com = (numprocs == 1) ? com : com / (numprocs - 1);
+            double time     = (total_time) * 1e6 / (options.iterations);
+            double com      = (commun_time) * 1e6 / (options.iterations);
+            double avg_com  = (numprocs == 1) ? com : com / (numprocs - 1);
+            double comm_per = avg_com / time * 100.0;
+
+            if (comm_per > 100.0) {
+                comm_per = 100.0;
+            }
 
             fprintf(stdout, "%-*d%*.*f%*.*f%*.*f\n", 10, size,
                     FIELD_WIDTH, FLOAT_PRECISION, avg_com,
                     FIELD_WIDTH, FLOAT_PRECISION, time,
-                    FIELD_WIDTH, FLOAT_PRECISION, avg_com / time * 100);
+                    FIELD_WIDTH, FLOAT_PRECISION, comm_per);
             fflush(stdout);
         }
     }
